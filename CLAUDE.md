@@ -15,7 +15,7 @@ src/
   tools.ts        MCP tools and Forkable request construction
   write-gate.ts   preview, confirmation, and mutation recovery
   net/            GraphQL transport and error mapping
-  auth/           login, browser-cookie ingest, and session storage
+  auth/           login, cookie ingest, and session storage
   order/          domain types, selections, local guards, formatting, and status
 tests/            Bun tests
 scripts/smoke.ts  packed-install smoke test
@@ -31,10 +31,12 @@ adapt.
 ## Authentication and session state
 
 Forkable uses a Cookie header and CSRF token, not an API key. Sessions can come from email/password,
-an imported browser cookie, `FORKABLE_COOKIE`, or an auth file/stdin. Browser import uses
-`@steipete/sweet-cookie` on macOS, Linux, and Windows; Arc targeting is macOS-only, and Brave or
-Chromium on Linux or Windows may require an explicit profile path. Password input must remain hidden
-(`--password-stdin` or environment); never print credentials.
+`FORKABLE_COOKIE`, or a "Copy as cURL" blob via `--file` or stdin. This fork deliberately has no
+browser cookie-store import; do not add a dependency that reads browser profiles or the OS keychain.
+Password input must remain hidden (`--password-stdin` or environment); never print credentials.
+
+This fork is run from a local checkout, never from an npm registry. Dependencies are pinned to exact
+versions in `package.json`; keep them exact and commit `bun.lock` with any change.
 
 Session invariants:
 

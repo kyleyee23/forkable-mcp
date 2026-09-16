@@ -44,7 +44,7 @@ function reauthResult(e: ReauthRequiredError): CallToolResult {
         `then retry:\n` +
         `  • headless: set FORKABLE_COOKIE to a fresh forkable.com cookie, or\n` +
         `  • run \`forkable-mcp --auth --file <copy-as-curl.txt>\`, or\n` +
-        `  • run \`forkable-mcp --auth --chrome\` on a machine logged into forkable.com in Chrome.`,
+        `  • run \`pbpaste | forkable-mcp --auth\` after "Copy as cURL" in DevTools.`,
     ),
     structuredContent: { error: "forkable_reauth_required", reason: e.reason },
   };

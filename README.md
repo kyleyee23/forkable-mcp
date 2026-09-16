@@ -1,7 +1,6 @@
 # forkable-mcp
 
-[![npm](https://img.shields.io/npm/v/forkable-mcp.svg)](https://www.npmjs.com/package/forkable-mcp)
-[![CI](https://github.com/colinds/forkable-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/colinds/forkable-mcp/actions/workflows/ci.yml)
+[![CI](https://github.com/kyleyee23/forkable-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/colinds/forkable-mcp/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 [![MCP](https://img.shields.io/badge/MCP-server-black.svg)](https://modelcontextprotocol.io)
 [![Runtime: Bun or Node](https://img.shields.io/badge/runtime-Bun%20or%20Node-fbf0df.svg)](https://bun.sh)
@@ -13,6 +12,9 @@ lunch is without opening the Forkable app.
 > [!WARNING]
 > This is an unofficial project and is not affiliated with Forkable. It uses your Forkable web
 > session and an undocumented API that may change.
+>
+> This is a personal fork of [colinds/forkable-mcp](https://github.com/colinds/forkable-mcp). It
+> runs from a local checkout with pinned dependencies and does not read browser cookie stores.
 
 ## Features
 
@@ -26,29 +28,30 @@ lunch is without opening the Forkable app.
 
 ## Quick start
 
-You need [Bun](https://bun.sh) or Node.
-
-First, log in to Forkable in Chrome and import that session:
+This fork runs from a local checkout rather than an npm package, so nothing is fetched from a
+registry when the server starts. You need [Bun](https://bun.sh).
 
 ```bash
-bunx --bun forkable-mcp@latest --auth --chrome # Node: npx forkable-mcp@latest --auth --chrome
+git clone git@github.com:kyleyee23/forkable-mcp.git
+cd forkable-mcp
+bun install --frozen-lockfile
 ```
 
-Then add it to your MCP client:
+Authenticate once (see [Authentication](#authentication)), then register the checkout with your
+MCP client, replacing `/path/to/forkable-mcp` with the real location:
 
-| Client                   | Command or configuration                                    |
-| ------------------------ | ----------------------------------------------------------- |
-| Claude Code              | `claude mcp add forkable -- bunx --bun forkable-mcp@latest` |
-| Codex                    | `codex mcp add forkable -- bunx --bun forkable-mcp@latest`  |
-| Claude Desktop or Cursor | Add the JSON below under `mcpServers`                       |
-| VS Code                  | Add the JSON below under `servers` in `.vscode/mcp.json`    |
+| Client                   | Command or configuration                                                          |
+| ------------------------ | --------------------------------------------------------------------------------- |
+| Claude Code              | `claude mcp add -s user forkable -- bun run /path/to/forkable-mcp/src/index.ts`   |
+| Claude Desktop or Cursor | Add the JSON below under `mcpServers`                                             |
+| VS Code                  | Add the JSON below under `servers` in `.vscode/mcp.json`                          |
 
 ```json
 {
   "mcpServers": {
     "forkable": {
-      "command": "bunx",
-      "args": ["--bun", "forkable-mcp@latest"]
+      "command": "bun",
+      "args": ["run", "/path/to/forkable-mcp/src/index.ts"]
     }
   }
 }
@@ -66,14 +69,8 @@ Three [agent skills](https://agentskills.io) ship with the server:
 - `forkable-friday` adds a week-ahead planning routine on top of `forkable`
 - `forkable-setup` covers installation and authentication
 
-Install them with:
-
-```bash
-npx skills add colinds/forkable-mcp
-npx skills add colinds/forkable-mcp --list # See what's included first
-```
-
-The source files are in [`skills/`](./skills).
+The source files are in [`skills/`](./skills). Copy or symlink the ones you want into
+`~/.claude/skills/`.
 
 ## Tools
 
@@ -121,51 +118,24 @@ Existing attachments are kept; photo editing and buffet ratings are not supporte
 ## Authentication
 
 There is no API key. The server reuses a Forkable web session and stores it in
-`~/.forkable-mcp/session.json`.
-
-### Import from a browser
-
-Log in at [forkable.com](https://forkable.com), then run:
-
-```bash
-bunx --bun forkable-mcp@latest --auth --chrome # Node: npx forkable-mcp@latest --auth --chrome
-```
-
-Chrome and Edge profiles are found automatically on macOS, Linux, and Windows. Browser import is
-best-effort because browser storage and operating-system security rules vary.
-
-On macOS, Keychain may ask for permission once per browser profile. Limit the scan if you know which
-profile you use:
-
-```bash
-bunx --bun forkable-mcp@latest --auth --chrome --profile "Profile 1"
-```
-
-Arc is supported on macOS:
-
-```bash
-bunx --bun forkable-mcp@latest --auth --chrome --browser arc
-```
-
-Brave and Chromium are also supported. On Linux or Windows, you may need to pass a profile directory
-or cookie database with `--profile`.
+`~/.forkable-mcp/session.json` with mode `0600`. The browser cookie import from upstream has been
+removed from this fork; use one of the two methods below.
 
 ### Email and password
 
 ```bash
-bunx --bun forkable-mcp@latest --auth --login --email you@example.com # Node: npx forkable-mcp@latest --auth --login --email you@example.com
+bun run auth --login --email you@example.com
 ```
 
 The command asks for your password without showing it. Password-based sessions can sign in again
-after they expire. SSO-only accounts need a browser or cookie import instead.
+after they expire. SSO-only accounts need the cookie method instead.
 
 For non-interactive use, send the password on standard input with `--password-stdin`, or set
 `FORKABLE_EMAIL` and `FORKABLE_PASSWORD`.
 
 ### Copy as cURL
 
-If browser import cannot find your session, copy an authenticated Forkable GraphQL request from your
-browser's developer tools:
+Copy an authenticated Forkable GraphQL request from your browser's developer tools:
 
 1. Open Forkable, then open Developer Tools and select **Network**.
 2. Reload the page and filter for `graphql`.
@@ -173,7 +143,7 @@ browser's developer tools:
 4. Pipe the copied command into the auth command:
 
 ```bash
-pbpaste | bunx --bun forkable-mcp@latest --auth # Node: pbpaste | npx forkable-mcp@latest --auth
+pbpaste | bun run auth
 ```
 
 Only the Cookie header is imported. You can also save the copied command and pass it with
@@ -199,12 +169,11 @@ environment.
 `FORKABLE_MAX_TOTAL` is a local limit, not a Forkable allowance or billing rule. Billing information
 is shown as Forkable reports it.
 
-## From source
+## Running directly
 
 ```bash
-bun install
-bun run auth --chrome
-bun run start
+bun run start   # serve MCP over stdio
+bun run dev     # same, with file watching
 ```
 
 ## Development

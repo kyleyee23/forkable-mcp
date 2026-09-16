@@ -1,10 +1,9 @@
-// `--auth` CLI: import a Forkable session (from Chrome or a "Copy as cURL" blob), then exit.
+// `--auth` CLI: import a Forkable session (password login or a "Copy as cURL" blob), then exit.
 
 import { ingestCredentials } from "./ingest.ts";
 import { loginWithPassword } from "./login.ts";
 import { readSession, redact } from "./session.ts";
 import { ReauthRequiredError } from "@/net/errors.ts";
-import { type SupportedBrowser } from "./chrome.ts";
 import { readFile } from "node:fs/promises";
 import { createInterface } from "node:readline/promises";
 import { Writable } from "node:stream";
@@ -20,10 +19,7 @@ async function readStdin(input: NodeJS.ReadStream = process.stdin): Promise<stri
 const authOptions = {
   auth: { type: "boolean" },
   login: { type: "boolean" },
-  chrome: { type: "boolean" },
   file: { type: "string" },
-  browser: { type: "string" },
-  profile: { type: "string" },
   email: { type: "string" },
   mfa: { type: "string" },
   "password-stdin": { type: "boolean" },
@@ -136,45 +132,6 @@ export async function runAuthCli(argv: string[]): Promise<void> {
       const password = await resolveLoginPassword(args["password-stdin"] ?? false);
       const { me } = await loginWithPassword({ email, password, mfaCode });
       console.error(`✓ Logged in as ${me.fullName || me.email || `user ${me.id}`}.`);
-    } else if (args.chrome) {
-      const { readForkableCookieHeaders, SUPPORTED_BROWSERS } = await import("./chrome.ts");
-      if (args.browser && !(SUPPORTED_BROWSERS as readonly string[]).includes(args.browser)) {
-        console.error(
-          `Unknown --browser "${args.browser}". Supported: ${SUPPORTED_BROWSERS.join(", ")}.`,
-        );
-        process.exit(1);
-      }
-      const browser = args.browser as SupportedBrowser | undefined;
-      const { candidates, warnings } = await readForkableCookieHeaders({
-        ...(browser ? { browser } : {}),
-        ...(args.profile ? { profile: args.profile } : {}),
-      });
-      for (const warning of warnings) console.error(`Browser import warning: ${warning}`);
-
-      let imported: { profile: string; user: string } | undefined;
-      let lastError: unknown;
-      for (const candidate of candidates) {
-        try {
-          // Profiles are verified serially so only one valid session is persisted.
-          // eslint-disable-next-line no-await-in-loop
-          const { me } = await ingestCredentials({ cookie: candidate.cookie });
-          imported = {
-            profile: candidate.profile,
-            user: me.fullName || me.email || `user ${me.id}`,
-          };
-          break;
-        } catch (error) {
-          lastError = error;
-        }
-      }
-      if (!imported) {
-        throw lastError instanceof Error
-          ? lastError
-          : new Error("No browser profile contained a valid Forkable session.");
-      }
-      console.error(
-        `✓ Imported ${browser ?? "chrome"} session (profile ${imported.profile}) for ${imported.user}.`,
-      );
     } else if (!args.file && process.env.FORKABLE_COOKIE) {
       // Headless cookie import.
       const { me } = await ingestCredentials({
@@ -187,7 +144,6 @@ export async function runAuthCli(argv: string[]): Promise<void> {
     } else {
       const blob = args.file ? await readFile(args.file, "utf8") : await readStdin();
       if (!blob.trim()) {
-        const { SUPPORTED_BROWSERS } = await import("./chrome.ts");
         console.error(
           "No session provided. Pick whichever is easiest:\n" +
             "\n" +
@@ -196,22 +152,13 @@ export async function runAuthCli(argv: string[]): Promise<void> {
             "     The terminal prompts without echoing. For non-interactive use:\n" +
             "       printf '%s\\n' \"$FORKABLE_PASSWORD\" | forkable-mcp --auth --login --email you@co.com --password-stdin\n" +
             "\n" +
-            "  2. Import from your logged-in browser:\n" +
-            "       forkable-mcp --auth --chrome\n" +
-            "       forkable-mcp --auth --chrome --browser arc [--profile 'Profile 1']\n" +
-            `       --browser: ${SUPPORTED_BROWSERS.join(", ")}\n` +
-            "       matching profiles are verified until one succeeds\n" +
-            "       macOS may prompt once per profile; --profile limits the scan\n" +
-            "       Arc targeting is macOS-only; Brave/Chromium on Linux or Windows may\n" +
-            "       need --profile /path/to/profile\n" +
-            "\n" +
-            "  3. Paste a cookie header (SSO accounts, or when browser import is unavailable):\n" +
+            "  2. Paste a cookie header (SSO accounts):\n" +
             "       FORKABLE_COOKIE='_easyorder_session=…; …' forkable-mcp --auth\n" +
             "     Get it from forkable.com → DevTools (⌥⌘I) → Network → filter for\n" +
             "     `graphql` → click a POST /api/v2/graphql request → Headers → Request Headers\n" +
             "     → copy the whole `cookie:` value (must include _easyorder_session).\n" +
             "\n" +
-            '  4. Paste a "Copy as cURL" blob — the whole curl command DevTools writes\n' +
+            '  3. Paste a "Copy as cURL" blob — the whole curl command DevTools writes\n' +
             "     for a request, cookies and all; we just parse the cookie out of it.\n" +
             "     forkable.com → DevTools → Network → filter for `graphql` →\n" +
             "     right-click a POST /api/v2/graphql request → Copy → Copy as cURL, then:\n" +

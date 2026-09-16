@@ -30,9 +30,13 @@ describe("auth CLI password handling", () => {
   });
 
   test("parses the supported auth options", () => {
-    expect(() =>
-      validateAuthCliArgs(["--auth", "--chrome", "--browser", "arc", "--profile", "Profile 1"]),
-    ).not.toThrow();
+    expect(() => validateAuthCliArgs(["--auth", "--file", "./forkable.curl"])).not.toThrow();
+    expect(() => validateAuthCliArgs(["--auth", "--login", "--email", "a@b.c"])).not.toThrow();
+  });
+
+  test("rejects the removed browser import flags", () => {
+    expect(() => validateAuthCliArgs(["--auth", "--chrome"])).toThrow();
+    expect(() => validateAuthCliArgs(["--auth", "--browser", "arc"])).toThrow();
   });
 
   test("reads the explicit stdin password without trimming spaces", async () => {
